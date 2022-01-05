@@ -1,0 +1,23 @@
+# OS file
+*~
+*.bak
+.DS_Store
+Thumbs.db
+
+# IDE user config
+.vscode/
+.idea/
+.vs/
+.buildpath
+.project
+.settings
+*.tmproj
+nbproject/
+tags
+
+# Terraform
+/.terraform
+/.terraform.lock.hcl
+/.terraform.tfstate.lock.info
+/terraform.tfvars
+/terraform.tfstate*

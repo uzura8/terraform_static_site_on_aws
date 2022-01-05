@@ -1,0 +1,4 @@
+prj_prefix         = "your-service-name"
+aws_region         = "ap-northeast-1"
+route53_zone_id    = "Set your route53 zone id"
+domain_static_site = "your-domain-static-site.example.com"
