@@ -73,4 +73,4 @@ terraform apply -auto-approve -var-file=./terraform.tfvars
     * __CLOUDFRONT_DISTRIBUTION__ : your cloudfront distribution created by terraform 
     * __S3_RESOURCE_BUCKET__: "your-domain-static-site.example.com"
 
-####Deploy continually on pushed to git
+#### Deploy continually on pushed to git

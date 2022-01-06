@@ -21,3 +21,5 @@ tags
 /.terraform.tfstate.lock.info
 /terraform.tfvars
 /terraform.tfstate*
+
+/var/*

@@ -26,12 +26,21 @@ locals {
 }
 
 ## S3 for cloudfront logs
-resource "aws_s3_bucket" "cloudfront_logs" {
-  bucket = "${local.fqdn.static_site}-cloudfront-logs"
+resource "aws_s3_bucket" "s3_accesslog" {
+  bucket = "${local.fqdn.static_site}-s3-accesslog"
+  acl    = "log-delivery-write"
+
+  tags = {
+    Name      = join("-", [var.prj_prefix, "s3", "s3_accesslog"])
+    ManagedBy = "terraform"
+  }
+}
+resource "aws_s3_bucket" "cf_accesslog" {
+  bucket = "${local.fqdn.static_site}-cf-accesslog"
   acl    = "private"
 
   tags = {
-    Name      = join("-", [var.prj_prefix, "s3", "cloudfront_logs"])
+    Name      = join("-", [var.prj_prefix, "s3", "cf_accesslog"])
     ManagedBy = "terraform"
   }
 }
@@ -40,14 +49,38 @@ resource "aws_s3_bucket" "cloudfront_logs" {
 data "aws_cloudfront_cache_policy" "managed_caching_optimized" {
   name = "Managed-CachingOptimized"
 }
+data "aws_cloudfront_cache_policy" "managed_caching_disabled" {
+  name = "Managed-CachingDisabled"
+}
 
 ## Distribution
 resource "aws_cloudfront_distribution" "main" {
   origin {
-    domain_name = "${local.bucket.name}.s3-${var.aws_region}.amazonaws.com"
-    origin_id   = "S3-${local.fqdn.static_site}"
-    s3_origin_config {
-      origin_access_identity = aws_cloudfront_origin_access_identity.main.cloudfront_access_identity_path
+    ## Accept to access from CloudFront only
+    #domain_name = "${local.bucket.name}.s3-${var.aws_region}.amazonaws.com"
+
+    # Accept to access to S3 Bucket from All
+    domain_name = aws_s3_bucket.app.website_endpoint
+
+    origin_id = "S3-${local.fqdn.static_site}"
+
+    ## Accept to access from CloudFront only
+    #s3_origin_config {
+    #  origin_access_identity = aws_cloudfront_origin_access_identity.main.cloudfront_access_identity_path
+    #}
+
+    # Accept to access to S3 Bucket from All
+    custom_origin_config {
+      http_port                = 80
+      https_port               = 443
+      origin_keepalive_timeout = 10
+      origin_protocol_policy   = "match-viewer"
+      origin_read_timeout      = 60
+      origin_ssl_protocols = [
+        "TLSv1",
+        "TLSv1.1",
+        "TLSv1.2"
+      ]
     }
   }
 
@@ -62,7 +95,7 @@ resource "aws_cloudfront_distribution" "main" {
   viewer_certificate {
     cloudfront_default_certificate = false
     acm_certificate_arn            = aws_acm_certificate.main.arn
-    minimum_protocol_version       = "TLSv1.2_2019"
+    minimum_protocol_version       = "TLSv1.2_2021"
     ssl_support_method             = "sni-only"
   }
 
@@ -70,17 +103,18 @@ resource "aws_cloudfront_distribution" "main" {
 
   logging_config {
     include_cookies = true
-    bucket          = "${aws_s3_bucket.cloudfront_logs.id}.s3.amazonaws.com"
+    bucket          = "${aws_s3_bucket.cf_accesslog.id}.s3.amazonaws.com"
     prefix          = "log/"
   }
 
+  ## For SPA to catch all request by /index.html
   #custom_error_response {
   #  #error_caching_min_ttl = 360
   #  error_code         = 404
   #  response_code      = 200
   #  response_page_path = "/index.html"
   #}
-
+  #
   #custom_error_response {
   #  #error_caching_min_ttl = 360
   #  error_code         = 403
@@ -89,13 +123,16 @@ resource "aws_cloudfront_distribution" "main" {
   #}
 
   default_cache_behavior {
-    allowed_methods  = ["GET", "HEAD"]
+    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "S3-${local.fqdn.static_site}"
     #viewer_protocol_policy = "allow-all"
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
     cache_policy_id        = data.aws_cloudfront_cache_policy.managed_caching_optimized.id
+    min_ttl                = 0
+    default_ttl            = 3600
+    max_ttl                = 86400
   }
 
   restrictions {
@@ -153,19 +190,28 @@ resource "aws_route53_record" "main_cdn_a" {
 }
 
 ## Create CloudFront OAI
-resource "aws_cloudfront_origin_access_identity" "main" {
-  comment = "Origin Access Identity for s3 ${local.bucket.name} bucket"
-}
+## Accept to access from CloudFront only
+#resource "aws_cloudfront_origin_access_identity" "main" {
+#  comment = "Origin Access Identity for s3 ${local.bucket.name} bucket"
+#}
 
 # Create IAM poliocy document
 data "aws_iam_policy_document" "s3_policy" {
   statement {
+    sid       = "PublicRead"
     actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.app.arn}/*"]
 
+    ## Accept to access from CloudFront only
+    #principals {
+    #  identifiers = [aws_cloudfront_origin_access_identity.main.iam_arn]
+    #  type        = "AWS"
+    #}
+
+    # Accept to access from All
     principals {
-      identifiers = [aws_cloudfront_origin_access_identity.main.iam_arn]
-      type        = "AWS"
+      identifiers = ["*"]
+      type        = "*"
     }
   }
 }
@@ -179,7 +225,14 @@ resource "aws_s3_bucket_policy" "main" {
 ## S3 for Static Website Hosting
 resource "aws_s3_bucket" "app" {
   bucket = local.bucket.name
-  acl    = "private"
+
+  #acl = "private" # Accept to access from CloudFront only
+  acl = "public-read" # Accept to access to S3 Bucket from All
+
+  logging {
+    target_bucket = aws_s3_bucket.s3_accesslog.id
+    target_prefix = "log/"
+  }
 
   website {
     index_document = "index.html"
@@ -190,4 +243,14 @@ resource "aws_s3_bucket" "app" {
     Name      = join("-", [var.prj_prefix, "s3", "app"])
     ManagedBy = "terraform"
   }
+}
+
+# S3 Public Access Block
+# Accept to access from All
+resource "aws_s3_bucket_public_access_block" "app" {
+  bucket                  = aws_s3_bucket.app.bucket
+  block_public_acls       = true
+  block_public_policy     = false
+  ignore_public_acls      = true
+  restrict_public_buckets = false
 }
