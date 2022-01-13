@@ -189,18 +189,21 @@ resource "aws_route53_record" "main_cdn_a" {
   }
 }
 
-## Create CloudFront OAI
-## Accept to access from CloudFront only
-#resource "aws_cloudfront_origin_access_identity" "main" {
-#  comment = "Origin Access Identity for s3 ${local.bucket.name} bucket"
-#}
+# Create CloudFront OAI
+resource "aws_cloudfront_origin_access_identity" "main" {
+  comment = "Origin Access Identity for s3 ${local.bucket.name} bucket"
+}
 
 # Create IAM poliocy document
 data "aws_iam_policy_document" "s3_policy" {
   statement {
-    sid       = "PublicRead"
-    actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.app.arn}/*"]
+    sid     = "PublicRead"
+    effect  = "Allow"
+    actions = ["s3:GetObject"]
+    resources = [
+      aws_s3_bucket.app.arn,
+      "${aws_s3_bucket.app.arn}/*"
+    ]
 
     ## Accept to access from CloudFront only
     #principals {
@@ -226,8 +229,10 @@ resource "aws_s3_bucket_policy" "main" {
 resource "aws_s3_bucket" "app" {
   bucket = local.bucket.name
 
+  #force_destroy = false # Set true, destroy bucket with objects
+
   #acl = "private" # Accept to access from CloudFront only
-  acl = "public-read" # Accept to access to S3 Bucket from All
+  #acl = "public-read" # Accept to access to S3 Bucket from All
 
   logging {
     target_bucket = aws_s3_bucket.s3_accesslog.id
@@ -249,8 +254,8 @@ resource "aws_s3_bucket" "app" {
 # Accept to access from All
 resource "aws_s3_bucket_public_access_block" "app" {
   bucket                  = aws_s3_bucket.app.bucket
-  block_public_acls       = true
+  block_public_acls       = false
   block_public_policy     = false
-  ignore_public_acls      = true
+  ignore_public_acls      = false
   restrict_public_buckets = false
 }
