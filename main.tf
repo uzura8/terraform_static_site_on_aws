@@ -56,32 +56,32 @@ data "aws_cloudfront_cache_policy" "managed_caching_disabled" {
 ## Distribution
 resource "aws_cloudfront_distribution" "main" {
   origin {
-    ## Accept to access from CloudFront only
-    #domain_name = "${local.bucket.name}.s3-${var.aws_region}.amazonaws.com"
+    # Accept to access from CloudFront only
+    domain_name = "${local.bucket.name}.s3-${var.aws_region}.amazonaws.com"
 
-    # Accept to access to S3 Bucket from All
-    domain_name = aws_s3_bucket.app.website_endpoint
+    ## Accept to access to S3 Bucket from All
+    #domain_name = aws_s3_bucket.app.website_endpoint
 
     origin_id = "S3-${local.fqdn.static_site}"
 
-    ## Accept to access from CloudFront only
-    #s3_origin_config {
-    #  origin_access_identity = aws_cloudfront_origin_access_identity.main.cloudfront_access_identity_path
-    #}
-
-    # Accept to access to S3 Bucket from All
-    custom_origin_config {
-      http_port                = 80
-      https_port               = 443
-      origin_keepalive_timeout = 10
-      origin_protocol_policy   = "match-viewer"
-      origin_read_timeout      = 60
-      origin_ssl_protocols = [
-        "TLSv1",
-        "TLSv1.1",
-        "TLSv1.2"
-      ]
+    # Accept to access from CloudFront only
+    s3_origin_config {
+      origin_access_identity = aws_cloudfront_origin_access_identity.main.cloudfront_access_identity_path
     }
+
+    ## Accept to access to S3 Bucket from All
+    #custom_origin_config {
+    #  http_port                = 80
+    #  https_port               = 443
+    #  origin_keepalive_timeout = 10
+    #  origin_protocol_policy   = "match-viewer"
+    #  origin_read_timeout      = 60
+    #  origin_ssl_protocols = [
+    #    "TLSv1",
+    #    "TLSv1.1",
+    #    "TLSv1.2"
+    #  ]
+    #}
   }
 
   enabled             = true
@@ -107,20 +107,20 @@ resource "aws_cloudfront_distribution" "main" {
     prefix          = "log/"
   }
 
-  ## For SPA to catch all request by /index.html
-  #custom_error_response {
-  #  #error_caching_min_ttl = 360
-  #  error_code         = 404
-  #  response_code      = 200
-  #  response_page_path = "/index.html"
-  #}
-  #
-  #custom_error_response {
-  #  #error_caching_min_ttl = 360
-  #  error_code         = 403
-  #  response_code      = 200
-  #  response_page_path = "/index.html"
-  #}
+  # For SPA to catch all request by /index.html
+  custom_error_response {
+    #error_caching_min_ttl = 360
+    error_code         = 404
+    response_code      = 200
+    response_page_path = "/index.html"
+  }
+
+  custom_error_response {
+    #error_caching_min_ttl = 360
+    error_code         = 403
+    response_code      = 200
+    response_page_path = "/index.html"
+  }
 
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD", "OPTIONS"]
@@ -205,17 +205,17 @@ data "aws_iam_policy_document" "s3_policy" {
       "${aws_s3_bucket.app.arn}/*"
     ]
 
-    ## Accept to access from CloudFront only
-    #principals {
-    #  identifiers = [aws_cloudfront_origin_access_identity.main.iam_arn]
-    #  type        = "AWS"
-    #}
-
-    # Accept to access from All
+    # Accept to access from CloudFront only
     principals {
-      identifiers = ["*"]
-      type        = "*"
+      identifiers = [aws_cloudfront_origin_access_identity.main.iam_arn]
+      type        = "AWS"
     }
+
+    ## Accept to access from All
+    #principals {
+    #  identifiers = ["*"]
+    #  type        = "*"
+    #}
   }
 }
 
@@ -231,7 +231,7 @@ resource "aws_s3_bucket" "app" {
 
   #force_destroy = false # Set true, destroy bucket with objects
 
-  #acl = "private" # Accept to access from CloudFront only
+  acl = "private" # Accept to access from CloudFront only
   #acl = "public-read" # Accept to access to S3 Bucket from All
 
   logging {
@@ -250,12 +250,12 @@ resource "aws_s3_bucket" "app" {
   }
 }
 
-# S3 Public Access Block
-# Accept to access from All
-resource "aws_s3_bucket_public_access_block" "app" {
-  bucket                  = aws_s3_bucket.app.bucket
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
-}
+## S3 Public Access Block
+## Accept to access from All
+#resource "aws_s3_bucket_public_access_block" "app" {
+#  bucket                  = aws_s3_bucket.app.bucket
+#  block_public_acls       = false
+#  block_public_policy     = false
+#  ignore_public_acls      = false
+#  restrict_public_buckets = false
+#}
