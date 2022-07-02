@@ -60,7 +60,7 @@ resource "aws_cloudfront_distribution" "main" {
     #domain_name = "${local.bucket.name}.s3-${var.aws_region}.amazonaws.com"
 
     # Accept to access to S3 Bucket from All
-    domain_name = aws_s3_bucket.app.website_endpoint
+    domain_name = "${local.bucket.name}.s3.us-east-1.amazonaws.com"
 
     origin_id = "S3-${local.fqdn.static_site}"
 
