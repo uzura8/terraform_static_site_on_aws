@@ -10,56 +10,57 @@ Create S3 Bucket named "your-terraform-config-bucket"
 
 You need below
 
-* aws-cli >= 1.18.X
-* Terraform >= 0.14.5
+* aws-cli >= 1.27.X
+* Terraform >= 1.4.6
 
 ##### Example Installation Terraform by tfenv on mac
 
-````bash
+```bash
 brew install tfenv
-tfenv install 0.14.5
-tfenv use 0.14.5
-````
+tfenv install 1.4.6
+tfenv use 1.4.6
+```
 
 #### 1. Edit Terraform config file
 
 Copy sample file and edit variables for your env
 
-````bash
+```bash
 cd (project_root_dir)
 cp terraform.tfvars.sample terraform.tfvars
 vi terraform.tfvars
-````
+```
 
-````terraform
- ...
- 
-route53_zone_id    = "Set your route53 zone id"
-domain_static_site = "your-domain-static-site.example.com"
-````
+```terraform
+prj_prefix = "your-porject-name"
+region_api = "ap-northeast-1"
+region_site = "ap-northeast-1"
+region_acm = "us-east-1"
+route53_zone_id = "Set your route53 zone id"
+domain_static_site_prd = "your-domain-static-site.example.com"
+domain_static_site_dev = "your-domain-static-site-dev.example.com"
+```
 
 #### 2. Set AWS profile name to environment variable
 
-````bash
+```bash
 export AWS_PROFILE=your-aws-profile-name
-export AWS_DEFAULT_REGION="ap-northeast-1"
-````
+export AWS_REGION="ap-northeast-1"
+```
 
 #### 3. Execute terraform init
 
 Command Example to init
 
-````bash
-terraform init -backend-config="bucket=your-terraform-config-bucket" -backend-config="key=terraform.hoge.tfstate" -backend-config="region=ap-northeast-1" -backend-config="profile=your-aws-profile-name"
-````
+```bash
+terraform init -backend-config="bucket=your-deployment" -backend-config="key=terraform/your-project/terraform.tfstate" -backend-config="region=ap-northeast-1" -backend-config="profile=your-aws-profile-name"
+```
 
 #### 4. Execute terraform apply
 
-````bash
+```bash
 terraform apply -auto-approve -var-file=./terraform.tfvars
-````
-
-
+```
 
 ## Setup GitHub Actions for deploying static site
 
@@ -68,9 +69,16 @@ terraform apply -auto-approve -var-file=./terraform.tfvars
 * Access to https://github.com/{your-account}/{repository-name}/settings/secrets/actions
 * Push "New repository secret"
 * Add Below
-    * __AWS_ACCESS_KEY_ID__ : your-aws-access_key
-    * __AWS_SECRET_ACCESS_KEY__ : your-aws-secret_key
-    * __CLOUDFRONT_DISTRIBUTION__ : your cloudfront distribution created by terraform 
-    * __S3_RESOURCE_BUCKET__: "your-domain-static-site.example.com"
+  - Common
+    - **AWS_ACCESS_KEY_ID** : your-aws-access_key
+    - **AWS_SECRET_ACCESS_KEY** : your-aws-secret_key
+  - For Production
+    - **CLOUDFRONT_DISTRIBUTION** : your cloudfront distribution created by terraform for production
+    - **S3_CONFIG_BUCKET**: "your-serverles-configs/your-project/frontend/prd" for production
+    - **S3_RESOURCE_BUCKET**: "your-domain-static-site.example.com" for production
+  - For Develop
+    - **CLOUDFRONT_DISTRIBUTION_DEV** : your cloudfront distribution created by terraform for develop
+    - **S3_CONFIG_BUCKET_DEV**: "your-serverles-configs/your-project/frontend/dev" for develop
+    - **S3_RESOURCE_BUCKET_DEV**: "your-domain-static-site-dev.example.com" for develop
 
 #### Deploy continually on pushed to git
